@@ -1,0 +1,12 @@
+{
+  "domain": "celeste",
+  "name": "Céleste – Éphémérides IMCCE",
+  "version": "0.1.0",
+  "documentation": "https://ssp.imcce.fr/webservices/miriade/",
+  "issue_tracker": "https://github.com/votre-repo/ha-celeste/issues",
+  "requirements": [],
+  "dependencies": [],
+  "codeowners": [],
+  "iot_class": "cloud_polling",
+  "config_flow": true
+}

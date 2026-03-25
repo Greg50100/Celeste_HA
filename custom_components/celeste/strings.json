@@ -1,0 +1,32 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "Configurer les éphémérides IMCCE",
+        "description": "Choisissez un objet céleste et renseignez votre localisation pour calculer ses éphémérides.",
+        "data": {
+          "object_name": "Objet céleste",
+          "latitude": "Latitude de l'observateur",
+          "longitude": "Longitude de l'observateur",
+          "altitude": "Altitude (mètres)"
+        }
+      }
+    },
+    "abort": {
+      "already_configured": "Cet objet céleste est déjà configuré."
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "Options des éphémérides",
+        "data": {
+          "object_name": "Objet céleste",
+          "latitude": "Latitude de l'observateur",
+          "longitude": "Longitude de l'observateur",
+          "altitude": "Altitude (mètres)"
+        }
+      }
+    }
+  }
+}

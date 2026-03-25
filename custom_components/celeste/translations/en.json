@@ -1,0 +1,32 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "Configure IMCCE Ephemerides",
+        "description": "Choose a celestial object and enter your location to calculate its ephemerides.",
+        "data": {
+          "object_name": "Celestial object",
+          "latitude": "Observer latitude",
+          "longitude": "Observer longitude",
+          "altitude": "Altitude (meters)"
+        }
+      }
+    },
+    "abort": {
+      "already_configured": "This celestial object is already configured."
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "Ephemerides options",
+        "data": {
+          "object_name": "Celestial object",
+          "latitude": "Observer latitude",
+          "longitude": "Observer longitude",
+          "altitude": "Altitude (meters)"
+        }
+      }
+    }
+  }
+}
