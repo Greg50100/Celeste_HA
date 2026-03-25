@@ -2,15 +2,33 @@
   "config": {
     "step": {
       "user": {
-        "title": "Configurer les éphémérides IMCCE",
-        "description": "Choisissez un objet céleste et renseignez votre localisation pour calculer ses éphémérides.",
+        "title": "Céleste – Ajouter un objet céleste",
+        "description": "Choisissez une planète prédéfinie, ou sélectionnez « Autre objet » pour saisir un astéroïde, une comète ou un satellite.",
         "data": {
-          "object_name": "Objet céleste",
-          "latitude": "Latitude de l'observateur",
-          "longitude": "Longitude de l'observateur",
+          "object_name": "Planète",
+          "choice": "Mode de sélection"
+        }
+      },
+      "custom": {
+        "title": "Céleste – Objet personnalisé",
+        "description": "Entrez le nom exact de l'objet tel que reconnu par l'IMCCE (ex : Ceres, Halley, Io). Le nom sera validé auprès de l'API.",
+        "data": {
+          "object_name": "Nom de l'objet",
+          "object_type": "Type d'objet"
+        }
+      },
+      "location": {
+        "title": "Céleste – Localisation de l'observateur",
+        "description": "Renseignez les coordonnées de votre lieu d'observation. Par défaut, celles configurées dans Home Assistant.",
+        "data": {
+          "latitude": "Latitude",
+          "longitude": "Longitude",
           "altitude": "Altitude (mètres)"
         }
       }
+    },
+    "error": {
+      "object_not_found": "Objet introuvable par l'API IMCCE. Vérifiez le nom et le type."
     },
     "abort": {
       "already_configured": "Cet objet céleste est déjà configuré."
@@ -19,11 +37,10 @@
   "options": {
     "step": {
       "init": {
-        "title": "Options des éphémérides",
+        "title": "Céleste – Modifier la localisation",
         "data": {
-          "object_name": "Objet céleste",
-          "latitude": "Latitude de l'observateur",
-          "longitude": "Longitude de l'observateur",
+          "latitude": "Latitude",
+          "longitude": "Longitude",
           "altitude": "Altitude (mètres)"
         }
       }

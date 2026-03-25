@@ -1,6 +1,6 @@
 {
   "domain": "celeste",
-  "name": "Céleste – Éphémérides IMCCE",
+  "name": "Céleste – IMCCE Ephemeris",
   "version": "0.1.0",
   "documentation": "https://ssp.imcce.fr/webservices/miriade/",
   "issue_tracker": "https://github.com/votre-repo/ha-celeste/issues",

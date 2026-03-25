@@ -2,15 +2,33 @@
   "config": {
     "step": {
       "user": {
-        "title": "Configure IMCCE Ephemerides",
-        "description": "Choose a celestial object and enter your location to calculate its ephemerides.",
+        "title": "Céleste – Add a celestial object",
+        "description": "Choose a predefined planet, or select 'Custom object' to enter an asteroid, comet, or natural satellite.",
         "data": {
-          "object_name": "Celestial object",
-          "latitude": "Observer latitude",
-          "longitude": "Observer longitude",
+          "object_name": "Planet",
+          "choice": "Selection mode"
+        }
+      },
+      "custom": {
+        "title": "Céleste – Custom object",
+        "description": "Enter the exact object name as recognized by IMCCE (e.g., Ceres, Halley, Io). The name will be validated against the API.",
+        "data": {
+          "object_name": "Object name",
+          "object_type": "Object type"
+        }
+      },
+      "location": {
+        "title": "Céleste – Observer location",
+        "description": "Enter your observation coordinates. Defaults to your Home Assistant location.",
+        "data": {
+          "latitude": "Latitude",
+          "longitude": "Longitude",
           "altitude": "Altitude (meters)"
         }
       }
+    },
+    "error": {
+      "object_not_found": "Object not found by the IMCCE API. Please check the name and type."
     },
     "abort": {
       "already_configured": "This celestial object is already configured."
@@ -19,11 +37,10 @@
   "options": {
     "step": {
       "init": {
-        "title": "Ephemerides options",
+        "title": "Céleste – Modify location",
         "data": {
-          "object_name": "Celestial object",
-          "latitude": "Observer latitude",
-          "longitude": "Observer longitude",
+          "latitude": "Latitude",
+          "longitude": "Longitude",
           "altitude": "Altitude (meters)"
         }
       }
