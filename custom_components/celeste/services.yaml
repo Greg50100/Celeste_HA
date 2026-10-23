@@ -1,0 +1,53 @@
+convert_to_julian_day:
+  fields:
+    year:
+      required: true
+      example: 2026
+      selector:
+        number:
+          min: -4712
+          max: 9999
+          mode: box
+    month:
+      required: true
+      example: 10
+      selector:
+        number:
+          min: 1
+          max: 12
+    day:
+      required: true
+      example: 23
+      selector:
+        number:
+          min: 1
+          max: 31
+    hour:
+      default: 0
+      selector:
+        number:
+          min: 0
+          max: 23
+    minute:
+      default: 0
+      selector:
+        number:
+          min: 0
+          max: 59
+    second:
+      default: 0
+      selector:
+        number:
+          min: 0
+          max: 60
+          step: 0.001
+          mode: box
+convert_to_gregorian:
+  fields:
+    julian_day:
+      required: true
+      example: 2461337.5
+      selector:
+        number:
+          step: any
+          mode: box

@@ -3,10 +3,10 @@
     "step": {
       "user": {
         "title": "Céleste – Ajouter un objet céleste",
-        "description": "Choisissez une planète prédéfinie, ou sélectionnez « Autre objet » pour saisir un astéroïde, une comète ou un satellite.",
+        "description": "Choisissez le Soleil, la Lune ou une planète (calcul local, sans Internet), un autre objet (astéroïde, comète, satellite naturel, via le service en ligne de l'IMCCE) ou le temps astronomique (jour julien, temps sidéral, équation du temps).",
         "data": {
-          "object_name": "Planète",
-          "choice": "Mode de sélection"
+          "object_name": "Astre",
+          "choice": "Type de suivi"
         }
       },
       "custom": {
@@ -19,7 +19,7 @@
       },
       "location": {
         "title": "Céleste – Localisation de l'observateur",
-        "description": "Renseignez les coordonnées de votre lieu d'observation. Par défaut, celles configurées dans Home Assistant.",
+        "description": "Coordonnées du lieu d'observation (par défaut, celles de Home Assistant). Pour le temps astronomique, seule la longitude sert (temps sidéral et temps solaire local).",
         "data": {
           "latitude": "Latitude",
           "longitude": "Longitude",
@@ -37,11 +37,56 @@
   "options": {
     "step": {
       "init": {
-        "title": "Céleste – Modifier la localisation",
+        "title": "Céleste – Options",
         "data": {
           "latitude": "Latitude",
           "longitude": "Longitude",
-          "altitude": "Altitude (mètres)"
+          "altitude": "Altitude (mètres)",
+          "source": "Source des calculs",
+          "magnitude_threshold": "Seuil de magnitude pour la visibilité (facultatif)",
+          "enable_sensors": "Créer les capteurs numériques"
+        }
+      }
+    }
+  },
+  "services": {
+    "convert_to_julian_day": {
+      "name": "Convertir en jour julien",
+      "description": "Calcule le jour julien d’une date et d’une heure du calendrier grégorien (temps universel).",
+      "fields": {
+        "year": {
+          "name": "Année",
+          "description": "Année, par exemple 2026."
+        },
+        "month": {
+          "name": "Mois",
+          "description": "Mois (1 à 12)."
+        },
+        "day": {
+          "name": "Jour",
+          "description": "Jour du mois (1 à 31)."
+        },
+        "hour": {
+          "name": "Heure",
+          "description": "Heure TU (0 à 23)."
+        },
+        "minute": {
+          "name": "Minute",
+          "description": "Minute (0 à 59)."
+        },
+        "second": {
+          "name": "Seconde",
+          "description": "Seconde, décimales possibles."
+        }
+      }
+    },
+    "convert_to_gregorian": {
+      "name": "Convertir un jour julien en date",
+      "description": "Calcule la date et l’heure (temps universel) correspondant à un jour julien.",
+      "fields": {
+        "julian_day": {
+          "name": "Jour julien",
+          "description": "Par exemple 2461337,5."
         }
       }
     }

@@ -1,12 +1,17 @@
 {
   "domain": "celeste",
-  "name": "Céleste – IMCCE Ephemeris",
-  "version": "0.1.0",
-  "documentation": "https://ssp.imcce.fr/webservices/miriade/",
-  "issue_tracker": "https://github.com/votre-repo/ha-celeste/issues",
-  "requirements": [],
+  "name": "Céleste",
+  "codeowners": [
+    "@Greg50100"
+  ],
+  "config_flow": true,
   "dependencies": [],
-  "codeowners": [],
-  "iot_class": "cloud_polling",
-  "config_flow": true
+  "documentation": "https://github.com/Greg50100/Celeste_HA",
+  "integration_type": "service",
+  "iot_class": "local_polling",
+  "issue_tracker": "https://github.com/Greg50100/Celeste_HA/issues",
+  "requirements": [
+    "astronomy-engine==2.1.19"
+  ],
+  "version": "1.0.0"
 }

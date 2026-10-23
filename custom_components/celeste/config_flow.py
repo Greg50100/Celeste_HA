@@ -1,4 +1,4 @@
-"""Config flow pour Céleste – IMCCE Éphémérides."""
+"""Config flow pour Céleste : astre (calcul local ou IMCCE) ou temps astronomique."""
 from __future__ import annotations
 
 import logging
@@ -8,11 +8,12 @@ import aiohttp
 import voluptuous as vol
 
 from homeassistant import config_entries
+from homeassistant.config_entries import ConfigFlowResult
 from homeassistant.core import HomeAssistant, callback
-from homeassistant.data_entry_flow import FlowResult
 from homeassistant.helpers.aiohttp_client import async_get_clientsession
 import homeassistant.helpers.config_validation as cv
 
+from .helpers import display_name
 from .const import (
     CONF_ALTITUDE,
     CONF_ENABLE_SENSORS,
@@ -21,12 +22,18 @@ from .const import (
     CONF_MAGNITUDE_THRESHOLD,
     CONF_OBJECT_NAME,
     CONF_OBJECT_TYPE,
+    CONF_SOURCE,
     DEFAULT_ALTITUDE,
     DEFAULT_ENABLE_SENSORS,
     DOMAIN,
     MIRIADE_API_URL,
     OBJECT_TYPES,
     PREDEFINED_PLANETS,
+    SOURCE_IMCCE,
+    SOURCE_LOCAL,
+    SOURCE_TIME,
+    SOURCES,
+    TIME_OBJECT_NAME,
 )
 
 _LOGGER = logging.getLogger(__name__)
@@ -34,6 +41,7 @@ _LOGGER = logging.getLogger(__name__)
 # Choix principal : planète prédéfinie ou saisie libre
 CHOICE_PREDEFINED = "predefined"
 CHOICE_CUSTOM = "custom"
+CHOICE_TIME = "time"
 
 
 async def _validate_object_with_api(
@@ -81,7 +89,7 @@ class CelesteConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
 
     async def async_step_user(
         self, user_input: dict[str, Any] | None = None
-    ) -> FlowResult:
+    ) -> ConfigFlowResult:
         """Étape 1 : choix planète prédéfinie ou saisie personnalisée."""
         errors: dict[str, str] = {}
 
@@ -92,10 +100,18 @@ class CelesteConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                 # Aller vers l'étape de saisie libre
                 return await self.async_step_custom()
 
-            # Planète prédéfinie sélectionnée
+            if choice == CHOICE_TIME:
+                # Temps astronomique (jour julien, temps sidéral…) : seule la longitude compte
+                self._user_data[CONF_OBJECT_NAME] = TIME_OBJECT_NAME
+                self._user_data[CONF_OBJECT_TYPE] = "time"
+                self._user_data[CONF_SOURCE] = SOURCE_TIME
+                return await self.async_step_location()
+
+            # Planète prédéfinie : calcul local par défaut (modifiable dans les options)
             object_name = user_input.get(CONF_OBJECT_NAME, "Mars")
             self._user_data[CONF_OBJECT_NAME] = object_name
             self._user_data[CONF_OBJECT_TYPE] = "planet"
+            self._user_data[CONF_SOURCE] = SOURCE_LOCAL
             return await self.async_step_location()
 
         schema = vol.Schema(
@@ -105,8 +121,9 @@ class CelesteConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                 ): vol.In(PREDEFINED_PLANETS),
                 vol.Required("choice", default=CHOICE_PREDEFINED): vol.In(
                     {
-                        CHOICE_PREDEFINED: "Planète prédéfinie",
-                        CHOICE_CUSTOM: "Autre objet (astéroïde, comète…)",
+                        CHOICE_PREDEFINED: "Soleil, Lune ou planète (calcul local)",
+                        CHOICE_CUSTOM: "Autre objet : astéroïde, comète… (IMCCE, en ligne)",
+                        CHOICE_TIME: "Temps astronomique (jour julien, temps sidéral)",
                     }
                 ),
             }
@@ -120,7 +137,7 @@ class CelesteConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
 
     async def async_step_custom(
         self, user_input: dict[str, Any] | None = None
-    ) -> FlowResult:
+    ) -> ConfigFlowResult:
         """Étape 2a : saisie libre d'un objet céleste + type."""
         errors: dict[str, str] = {}
 
@@ -136,6 +153,7 @@ class CelesteConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                 resolved_name = sso.get("name", name)
                 self._user_data[CONF_OBJECT_NAME] = resolved_name
                 self._user_data[CONF_OBJECT_TYPE] = obj_type
+                self._user_data[CONF_SOURCE] = SOURCE_IMCCE
                 return await self.async_step_location()
 
         schema = vol.Schema(
@@ -155,19 +173,20 @@ class CelesteConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
 
     async def async_step_location(
         self, user_input: dict[str, Any] | None = None
-    ) -> FlowResult:
+    ) -> ConfigFlowResult:
         """Étape 3 : localisation de l'observateur."""
         if user_input is not None:
             self._user_data.update(user_input)
 
             object_name = self._user_data[CONF_OBJECT_NAME]
 
-            # Vérification d'unicité : un seul capteur par objet
-            await self.async_set_unique_id(f"{DOMAIN}_{object_name.lower()}")
+            # Vérification d'unicité : une seule entrée par objet (et une seule pour le temps)
+            unique = "time" if self._user_data.get(CONF_SOURCE) == SOURCE_TIME else object_name.lower()
+            await self.async_set_unique_id(f"{DOMAIN}_{unique}")
             self._abort_if_unique_id_configured()
 
             return self.async_create_entry(
-                title=f"Céleste – {object_name}",
+                title=f"Céleste – {display_name(object_name)}",
                 data=self._user_data,
             )
 
@@ -199,48 +218,43 @@ class CelesteConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         config_entry: config_entries.ConfigEntry,
     ) -> CelesteOptionsFlow:
         """Retourne le flux d'options."""
-        return CelesteOptionsFlow(config_entry)
+        return CelesteOptionsFlow()
 
 
 class CelesteOptionsFlow(config_entries.OptionsFlow):
-    """Gestion des options de l'intégration (modification lieu après installation)."""
+    """Options : lieu d'observation, source des calculs, seuil de magnitude, capteurs numériques.
 
-    def __init__(self, config_entry: config_entries.ConfigEntry) -> None:
-        """Initialise le flux d'options."""
-        self.config_entry = config_entry
+    `self.config_entry` est fourni par Home Assistant (l'affecter soi-même est obsolète depuis 2024.11).
+    """
 
     async def async_step_init(
         self, user_input: dict[str, Any] | None = None
-    ) -> FlowResult:
+    ) -> ConfigFlowResult:
         """Étape principale des options : localisation et sensors numériques."""
         if user_input is not None:
             return self.async_create_entry(title="", data=user_input)
 
         current = {**self.config_entry.data, **self.config_entry.options}
-        schema = vol.Schema(
-            {
-                vol.Optional(
-                    CONF_LATITUDE,
-                    default=current.get(CONF_LATITUDE, self.hass.config.latitude),
-                ): cv.latitude,
-                vol.Optional(
-                    CONF_LONGITUDE,
-                    default=current.get(CONF_LONGITUDE, self.hass.config.longitude),
-                ): cv.longitude,
-                vol.Optional(
-                    CONF_ALTITUDE,
-                    default=current.get(CONF_ALTITUDE, DEFAULT_ALTITUDE),
-                ): vol.Coerce(int),
-                vol.Optional(
-                    CONF_MAGNITUDE_THRESHOLD,
-                    default=current.get(CONF_MAGNITUDE_THRESHOLD),
-                ): vol.Any(None, vol.Coerce(float)),
-                vol.Optional(
-                    CONF_ENABLE_SENSORS,
-                    default=current.get(CONF_ENABLE_SENSORS, DEFAULT_ENABLE_SENSORS),
-                ): cv.boolean,
-            }
-        )
+        fields: dict = {
+            vol.Optional(
+                CONF_LATITUDE,
+                default=current.get(CONF_LATITUDE, self.hass.config.latitude),
+            ): cv.latitude,
+            vol.Optional(
+                CONF_LONGITUDE,
+                default=current.get(CONF_LONGITUDE, self.hass.config.longitude),
+            ): cv.longitude,
+            vol.Optional(
+                CONF_ALTITUDE,
+                default=current.get(CONF_ALTITUDE, DEFAULT_ALTITUDE),
+            ): vol.Coerce(int),
+        }
+        if current.get(CONF_SOURCE) != SOURCE_TIME:
+            if current.get(CONF_OBJECT_TYPE, "planet") == "planet" and current.get(CONF_OBJECT_NAME) in PREDEFINED_PLANETS:
+                fields[vol.Optional(CONF_SOURCE, default=current.get(CONF_SOURCE, SOURCE_IMCCE))] = vol.In(SOURCES)
+            fields[vol.Optional(CONF_MAGNITUDE_THRESHOLD, default=current.get(CONF_MAGNITUDE_THRESHOLD))] = vol.Any(None, vol.Coerce(float))
+            fields[vol.Optional(CONF_ENABLE_SENSORS, default=current.get(CONF_ENABLE_SENSORS, DEFAULT_ENABLE_SENSORS))] = cv.boolean
+        schema = vol.Schema(fields)
         return self.async_show_form(
             step_id="init",
             data_schema=schema,

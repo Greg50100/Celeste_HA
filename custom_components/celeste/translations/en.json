@@ -3,10 +3,10 @@
     "step": {
       "user": {
         "title": "Céleste – Add a celestial object",
-        "description": "Choose a predefined planet, or select 'Custom object' to enter an asteroid, comet, or natural satellite.",
+        "description": "Choose the Sun, the Moon or a planet (local calculation, no Internet), another object (asteroid, comet, natural satellite, through the IMCCE online service) or astronomical time (Julian day, sidereal time, equation of time).",
         "data": {
-          "object_name": "Planet",
-          "choice": "Selection mode"
+          "object_name": "Body",
+          "choice": "What to track"
         }
       },
       "custom": {
@@ -19,7 +19,7 @@
       },
       "location": {
         "title": "Céleste – Observer location",
-        "description": "Enter your observation coordinates. Defaults to your Home Assistant location.",
+        "description": "Observer coordinates (Home Assistant's by default). For astronomical time, only the longitude is used (local sidereal and solar time).",
         "data": {
           "latitude": "Latitude",
           "longitude": "Longitude",
@@ -37,11 +37,56 @@
   "options": {
     "step": {
       "init": {
-        "title": "Céleste – Modify location",
+        "title": "Céleste – Options",
         "data": {
           "latitude": "Latitude",
           "longitude": "Longitude",
-          "altitude": "Altitude (meters)"
+          "altitude": "Altitude (meters)",
+          "source": "Calculation source",
+          "magnitude_threshold": "Magnitude threshold for visibility (optional)",
+          "enable_sensors": "Create numeric sensors"
+        }
+      }
+    }
+  },
+  "services": {
+    "convert_to_julian_day": {
+      "name": "Convert to Julian day",
+      "description": "Calculates the Julian day of a Gregorian calendar date and time (Universal Time).",
+      "fields": {
+        "year": {
+          "name": "Year",
+          "description": "Year, e.g. 2026."
+        },
+        "month": {
+          "name": "Month",
+          "description": "Month (1-12)."
+        },
+        "day": {
+          "name": "Day",
+          "description": "Day of the month (1-31)."
+        },
+        "hour": {
+          "name": "Hour",
+          "description": "UT hour (0-23)."
+        },
+        "minute": {
+          "name": "Minute",
+          "description": "Minute (0-59)."
+        },
+        "second": {
+          "name": "Second",
+          "description": "Second, decimals allowed."
+        }
+      }
+    },
+    "convert_to_gregorian": {
+      "name": "Convert Julian day to date",
+      "description": "Calculates the date and time (Universal Time) of a Julian day.",
+      "fields": {
+        "julian_day": {
+          "name": "Julian day",
+          "description": "For example 2461337.5."
         }
       }
     }
