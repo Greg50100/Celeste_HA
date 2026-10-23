@@ -1,4 +1,4 @@
-"""Coordinateur de données pour Céleste – IMCCE Éphémérides."""
+"""Coordinateur de données pour Céleste : calcul local, service IMCCE ou temps astronomique."""
 from __future__ import annotations
 
 import asyncio
@@ -13,6 +13,7 @@ from homeassistant.helpers.aiohttp_client import async_get_clientsession
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator, UpdateFailed
 
 from .astro_utils import find_rts
+from .helpers import get_source
 from .const import (
     CONF_ALTITUDE,
     CONF_LATITUDE,
@@ -22,7 +23,10 @@ from .const import (
     DEFAULT_ALTITUDE,
     DOMAIN,
     MIRIADE_API_URL,
+    SOURCE_IMCCE,
+    SOURCE_TIME,
     UPDATE_INTERVAL,
+    UPDATE_INTERVAL_LOCAL,
 )
 
 _LOGGER = logging.getLogger(__name__)
@@ -32,27 +36,59 @@ API_TIMEOUT = 30
 
 
 class CelesteCoordinator(DataUpdateCoordinator):
-    """Coordonne les mises à jour depuis l'API IMCCE Miriade."""
+    """Coordonne les mises à jour d'une entrée Céleste.
+
+    Source « local » : Astronomy Engine, toutes les minutes, sans réseau.
+    Source « imcce » : API Miriade de l'IMCCE, toutes les heures.
+    Source « time »  : temps astronomique (jour julien, temps sidéral…), toutes les minutes.
+    """
 
     def __init__(self, hass: HomeAssistant, entry: ConfigEntry) -> None:
         """Initialise le coordinateur."""
+        self.source = get_source(entry)
+        interval = UPDATE_INTERVAL if self.source == SOURCE_IMCCE else UPDATE_INTERVAL_LOCAL
         super().__init__(
             hass,
             _LOGGER,
             name=DOMAIN,
-            update_interval=timedelta(seconds=UPDATE_INTERVAL),
+            update_interval=timedelta(seconds=interval),
         )
         self.entry = entry
         self.session = async_get_clientsession(hass)
         self._last_valid_data: dict | None = None
 
+    def _location(self) -> tuple[float, float, float]:
+        """Lieu d'observation : options, puis données initiales, puis configuration de Home Assistant."""
+        conf = {**self.entry.data, **self.entry.options}
+        return (
+            conf.get(CONF_LATITUDE, self.hass.config.latitude),
+            conf.get(CONF_LONGITUDE, self.hass.config.longitude),
+            conf.get(CONF_ALTITUDE, DEFAULT_ALTITUDE),
+        )
+
     async def _async_update_data(self) -> dict:
+        """Récupère les données selon la source de l'entrée."""
+        if self.source == SOURCE_IMCCE:
+            return await self._async_update_imcce()
+        from . import local_engine  # import tardif : astronomy n'est chargé qu'au besoin
+
+        latitude, longitude, altitude = self._location()
+        now = datetime.now(timezone.utc)
+        try:
+            if self.source == SOURCE_TIME:
+                return await self.hass.async_add_executor_job(local_engine.compute_time, longitude, now)
+            return await self.hass.async_add_executor_job(
+                local_engine.compute_body, self.entry.data[CONF_OBJECT_NAME], latitude, longitude, altitude, now
+            )
+        except Exception as err:  # noqa: BLE001
+            raise UpdateFailed(f"Erreur de calcul local : {err}") from err
+
+    async def _async_update_imcce(self) -> dict:
         """Récupère les données depuis l'API IMCCE (éphéméride J + positions horaires RTS)."""
         object_name = self.entry.data[CONF_OBJECT_NAME]
         obj_type = self.entry.data.get(CONF_OBJECT_TYPE, "planet")
-        latitude = self.entry.data.get(CONF_LATITUDE, self.hass.config.latitude)
-        longitude = self.entry.data.get(CONF_LONGITUDE, self.hass.config.longitude)
-        altitude = self.entry.data.get(CONF_ALTITUDE, DEFAULT_ALTITUDE)
+        # Les options (lieu modifié après l'installation) priment sur les données initiales
+        latitude, longitude, altitude = self._location()
 
         epoch = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%S")
 

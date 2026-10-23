@@ -1,4 +1,4 @@
-"""Capteur de visibilité pour Céleste – IMCCE Éphémérides."""
+"""Capteurs binaires de Céleste : visibilité et présence au-dessus de l'horizon."""
 from __future__ import annotations
 
 import logging
@@ -6,8 +6,7 @@ import logging
 from homeassistant.components.binary_sensor import BinarySensorEntity
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
-from homeassistant.helpers.device_registry import DeviceEntryType
-from homeassistant.helpers.entity import DeviceInfo
+from homeassistant.helpers.device_registry import DeviceInfo
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
@@ -17,8 +16,11 @@ from .const import (
     CONF_OBJECT_NAME,
     DOMAIN,
     ELONGATION_VISIBILITY_THRESHOLD,
+    SOURCE_LOCAL,
+    SOURCE_TIME,
 )
 from .coordinator import CelesteCoordinator
+from .helpers import build_device_info, get_source
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -28,11 +30,19 @@ async def async_setup_entry(
     entry: ConfigEntry,
     async_add_entities: AddEntitiesCallback,
 ) -> None:
-    """Configure le capteur de visibilité depuis une config entry."""
+    """Configure les capteurs binaires depuis une config entry."""
+    source = get_source(entry)
+    if source == SOURCE_TIME:
+        return
     coordinator: CelesteCoordinator = hass.data[DOMAIN][entry.entry_id]
     object_name = entry.data[CONF_OBJECT_NAME]
 
-    async_add_entities([CelesteVisibilitySensor(coordinator, entry, object_name)])
+    entities: list[BinarySensorEntity] = []
+    if object_name != "Sun":
+        entities.append(CelesteVisibilitySensor(coordinator, entry, object_name))
+    if source == SOURCE_LOCAL:
+        entities.append(CelesteAboveHorizonSensor(coordinator, entry, object_name))
+    async_add_entities(entities)
 
 
 class CelesteVisibilitySensor(CoordinatorEntity, BinarySensorEntity):
@@ -63,14 +73,7 @@ class CelesteVisibilitySensor(CoordinatorEntity, BinarySensorEntity):
     @property
     def device_info(self) -> DeviceInfo:
         """Regroupe les entités sous un appareil Céleste dans HA."""
-        return DeviceInfo(
-            identifiers={(DOMAIN, self._entry.entry_id)},
-            name=f"Céleste – {self._object_name}",
-            manufacturer="IMCCE (Observatoire de Paris)",
-            model="Miriade Éphémérides",
-            entry_type=DeviceEntryType.SERVICE,
-            configuration_url="https://ssp.imcce.fr/webservices/miriade/",
-        )
+        return build_device_info(self._entry, self._object_name)
 
     def _is_data_valid(self) -> bool:
         """Vérifie que les données du coordinator contiennent les clés critiques.
@@ -125,3 +128,43 @@ class CelesteVisibilitySensor(CoordinatorEntity, BinarySensorEntity):
         if self.is_on is False:
             return "mdi:eye-off"
         return "mdi:telescope"
+
+
+class CelesteAboveHorizonSensor(CoordinatorEntity, BinarySensorEntity):
+    """Capteur binaire : l'astre est-il au-dessus de l'horizon (réfraction comprise) ?
+
+    Pour le Soleil, c'est l'indicateur « il fait jour ». Disponible avec le calcul local.
+    """
+
+    _attr_has_entity_name = True
+
+    def __init__(self, coordinator: CelesteCoordinator, entry: ConfigEntry, object_name: str) -> None:
+        """Initialise le capteur."""
+        super().__init__(coordinator)
+        self._object_name = object_name
+        self._entry = entry
+        self._attr_unique_id = f"{entry.entry_id}_above_horizon"
+        self._attr_name = "Jour" if object_name == "Sun" else "Au-dessus de l'horizon"
+
+    @property
+    def device_info(self) -> DeviceInfo:
+        """Regroupe les entités sous un appareil Céleste dans HA."""
+        return build_device_info(self._entry, self._object_name)
+
+    @property
+    def available(self) -> bool:
+        """Disponible si la hauteur de l'astre est connue."""
+        return super().available and isinstance(self.coordinator.data, dict) and "altitude" in self.coordinator.data
+
+    @property
+    def is_on(self) -> bool | None:
+        """Vrai si la hauteur apparente est positive."""
+        altitude = (self.coordinator.data or {}).get("altitude")
+        return None if altitude is None else altitude > 0
+
+    @property
+    def icon(self) -> str:
+        """Icône selon l'astre et son état."""
+        if self._object_name == "Sun":
+            return "mdi:weather-sunny" if self.is_on else "mdi:weather-night"
+        return "mdi:arrow-up-circle" if self.is_on else "mdi:arrow-down-circle"
